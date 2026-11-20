@@ -8,7 +8,6 @@ public class OchoPatos {
         String txt = Files.readString(Path.of(args.length > 0 ? args[0] : "input.txt"));
         long[] nums = Arrays.stream(txt.trim().split("\\s+")).mapToLong(Long::parseLong).toArray();
 
-        // 2) Buscar qué patos dicen la verdad (fuerza bruta, 256 combinaciones)
         boolean[] t = null;
         for (int mask = 0; mask < 256; mask++) {
             boolean[] c = new boolean[9]; // índices 1..8

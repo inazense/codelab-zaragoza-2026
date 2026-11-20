@@ -1,74 +1,69 @@
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.regex.*;
 
-/**
- * Microcorrientes marinas - Unicode 2026 (CodeLab)
- *
- * Regla (mensaje ROT13 descifrado): pato + gps <= 100 gramos.
- * Para cada caso: máximo número de parejas pato + gps que no superan el límite.
- *
- * Uso:
- *   javac Microcorrientes.java
- *   java Microcorrientes entrada.json > salida.txt
- *
- * No necesita librerías: el JSON se lee con expresiones regulares.
- */
+// java Microcorrientes entrada.json > salida.txt
 public class Microcorrientes {
 
     static final int LIMITE = 100;
 
-    /** Voraz con dos punteros: GPS más pesado que quede con el pato más ligero que quede. */
+    // Empareja cada pato con un GPS sin superar LIMITE de peso conjunto.
+    // Los patos más ligeros se emparejan con los GPS más pesados que les caben.
     static int maxParejas(int[] patos, int[] gps) {
-        Arrays.sort(patos);                 // patos de ligero a pesado
-        Arrays.sort(gps);                   // gps de ligero a pesado (los recorremos al revés)
-        int i = 0;                          // pato más ligero libre
+        Arrays.sort(patos);
+        Arrays.sort(gps);
+
         int parejas = 0;
-        for (int j = gps.length - 1; j >= 0 && i < patos.length; j--) {
-            if (patos[i] + gps[j] <= LIMITE) {   // cabe -> pareja
+        int pato = 0; // índice del pato más ligero sin pareja
+        for (int g = gps.length - 1; g >= 0 && pato < patos.length; g--) {
+            if (patos[pato] + gps[g] <= LIMITE) {
                 parejas++;
-                i++;
+                pato++;
             }
-            // si no cabe, este GPS no cabe con ningún pato: se descarta
         }
         return parejas;
     }
 
-    static int[] parseNums(String s) {
-        Matcher m = Pattern.compile("-?\\d+(\\.\\d+)?").matcher(s);
-        List<Integer> out = new ArrayList<>();
-        while (m.find()) out.add((int) Math.round(Double.parseDouble(m.group())));
-        return out.stream().mapToInt(Integer::intValue).toArray();
+    // Extrae todos los números de un texto, redondeando los decimales.
+    static int[] numeros(String texto) {
+        Matcher m = Pattern.compile("-?\\d+(\\.\\d+)?").matcher(texto);
+        List<Integer> lista = new ArrayList<>();
+        while (m.find()) {
+            lista.add((int) Math.round(Double.parseDouble(m.group())));
+        }
+        return lista.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    // Devuelve el contenido numérico de cada coincidencia del patrón (grupo 1).
+    static List<int[]> buscarListas(String json, String patron) {
+        Matcher m = Pattern.compile(patron).matcher(json);
+        List<int[]> listas = new ArrayList<>();
+        while (m.find()) {
+            listas.add(numeros(m.group(1)));
+        }
+        return listas;
     }
 
     public static void main(String[] args) throws Exception {
         String ruta = args.length > 0 ? args[0] : "entrada.json";
-        String json = Files.readString(Path.of(ruta), StandardCharsets.UTF_8);
+        String json = Files.readString(Path.of(ruta));
 
-        // Formato esperado: [{"patos":[...], "gps":[...]}, ...]
-        Matcher mp = Pattern.compile("\"patos\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(json);
-        Matcher mg = Pattern.compile("\"gps\"\\s*:\\s*\\[([^\\]]*)\\]").matcher(json);
-        List<int[]> patos = new ArrayList<>(), gps = new ArrayList<>();
-        while (mp.find()) patos.add(parseNums(mp.group(1)));
-        while (mg.find()) gps.add(parseNums(mg.group(1)));
+        // Formato 1: [{"patos":[...], "gps":[...]}, ...]
+        List<int[]> patos = buscarListas(json, "\"patos\"\\s*:\\s*\\[([^\\]]*)\\]");
+        List<int[]> gps = buscarListas(json, "\"gps\"\\s*:\\s*\\[([^\\]]*)\\]");
 
-        // Alternativa sin claves: [[[patos],[gps]], ...] -> listas internas de dos en dos
+        // Formato 2 (sin claves): [[[patos],[gps]], ...] -> listas internas de dos en dos
         if (patos.isEmpty()) {
-            Matcher ma = Pattern.compile("\\[([^\\[\\]]*)\\]").matcher(json);
-            List<int[]> listas = new ArrayList<>();
-            while (ma.find()) listas.add(parseNums(ma.group(1)));
-            for (int k = 0; k + 1 < listas.size(); k += 2) {
-                patos.add(listas.get(k));
-                gps.add(listas.get(k + 1));
+            List<int[]> todas = buscarListas(json, "\\[([^\\[\\]]*)\\]");
+            for (int i = 0; i + 1 < todas.size(); i += 2) {
+                patos.add(todas.get(i));
+                gps.add(todas.get(i + 1));
             }
         }
 
-        StringBuilder sb = new StringBuilder();
-        for (int k = 0; k < patos.size(); k++) {
-            sb.append(maxParejas(patos.get(k), gps.get(k))).append('\n');
+        for (int i = 0; i < patos.size(); i++) {
+            System.out.println(maxParejas(patos.get(i), gps.get(i)));
         }
-        System.out.print(sb);
         System.err.println("Casos procesados: " + patos.size());
     }
 }
